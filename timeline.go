@@ -111,7 +111,7 @@ func (t *Timeline) deadline(at time.Time, now time.Time) context.Context {
 		if t.deadlines == nil {
 			t.deadlines = make(map[int64]deadline)
 		}
-		d = makeDeadline(background, jitterTime(expiration))
+		d = makeDeadline(background, jitterTime(expiration, time.Duration(r)))
 		t.deadlines[k] = d
 	}
 	t.mutex.Unlock()
