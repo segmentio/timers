@@ -2,6 +2,7 @@ package timers
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -110,7 +111,7 @@ func (t *Timeline) deadline(at time.Time, now time.Time) context.Context {
 		if t.deadlines == nil {
 			t.deadlines = make(map[int64]deadline)
 		}
-		d = makeDeadline(background, expiration)
+		d = makeDeadline(background, jitterTime(expiration))
 		t.deadlines[k] = d
 	}
 	t.mutex.Unlock()
@@ -191,4 +192,16 @@ func makeDeadline(parent context.Context, expiration time.Time) deadline {
 		context: context,
 		cancel:  cancel,
 	}
+}
+
+var jitterRand = rand.New(
+	rand.NewSource(time.Now().UnixNano()),
+)
+
+func jitter(d time.Duration) time.Duration {
+	return time.Duration(jitterRand.Int63n(int64(d)))
+}
+
+func jitterTime(t time.Time, d time.Duration) time.Time {
+	return t.Add(jitter(d))
 }
