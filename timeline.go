@@ -194,12 +194,18 @@ func makeDeadline(parent context.Context, expiration time.Time) deadline {
 	}
 }
 
-var jitterRand = rand.New(
-	rand.NewSource(time.Now().UnixNano()),
+var (
+	jitterMutex sync.Mutex
+	jitterRand  = rand.New(
+		rand.NewSource(time.Now().UnixNano()),
+	)
 )
 
 func jitter(d time.Duration) time.Duration {
-	return time.Duration(jitterRand.Int63n(int64(d)))
+	jitterMutex.Lock()
+	x := time.Duration(jitterRand.Int63n(int64(d)))
+	jitterMutex.Unlock()
+	return x
 }
 
 func jitterTime(t time.Time, d time.Duration) time.Time {
