@@ -40,7 +40,7 @@ type Timeline struct {
 var (
 	// HighRes is a timeline configured for high resolution timers, with 10
 	// millisecond accuracy.
-	HigRes = Timeline{
+	HighRes = Timeline{
 		Resolution: 10 * time.Millisecond,
 	}
 
