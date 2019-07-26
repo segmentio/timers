@@ -75,16 +75,18 @@ func (t *Timeline) Cancel() {
 // passed, plus up to the timeline's resolution.
 func (t *Timeline) Timeout(timeout time.Duration) context.Context {
 	now := time.Now()
-	return t.deadline(now.Add(timeout), now)
+	return t.Context(now.Add(timeout), now)
 }
 
 // Deadline returns a context which expires when the given deadline is reached,
 // plus up to the timeline's resolution.
 func (t *Timeline) Deadline(deadline time.Time) context.Context {
-	return t.deadline(deadline, time.Now())
+	return t.Context(deadline, time.Now())
 }
 
-func (t *Timeline) deadline(at time.Time, now time.Time) context.Context {
+// Context returns a context which expires when the given deadline is reached,
+// using `now` as the current time.
+func (t *Timeline) Context(at time.Time, now time.Time) context.Context {
 	r := int64(t.resolution())
 	k := at.UnixNano()
 
