@@ -62,13 +62,13 @@ var (
 // the timeline.
 func (t *Timeline) Cancel() {
 	t.mutex.Lock()
-
-	for _, d := range t.deadlines {
-		d.cancel()
-	}
-
+	deadlines := t.deadlines
 	t.deadlines = nil
 	t.mutex.Unlock()
+
+	for _, d := range deadlines {
+		d.cancel()
+	}
 }
 
 // Timeout returns a context which expires after the given amount of time has
@@ -88,13 +88,7 @@ func (t *Timeline) Deadline(deadline time.Time) context.Context {
 // using `now` as the current time.
 func (t *Timeline) Context(at time.Time, now time.Time) context.Context {
 	r := int64(t.resolution())
-	k := at.UnixNano()
-
-	// Round up to the nearest resoltion, unless the time already is a multiple
-	// of the timeline resolution.
-	if (k % r) != 0 {
-		k = ((k / r) + 1) * r
-	}
+	k := ((at.UnixNano() / r) + 1) * r
 
 	t.mutex.RLock()
 	d, ok := t.deadlines[k]
@@ -105,7 +99,8 @@ func (t *Timeline) Context(at time.Time, now time.Time) context.Context {
 	}
 
 	background := t.background()
-	expiration := time.Unix(0, k)
+	expiration := jitterTime(time.Unix(0, k), time.Duration(r))
+	newDeadline := makeDeadline(background, expiration)
 
 	t.mutex.Lock()
 	d, ok = t.deadlines[k]
@@ -113,10 +108,14 @@ func (t *Timeline) Context(at time.Time, now time.Time) context.Context {
 		if t.deadlines == nil {
 			t.deadlines = make(map[int64]deadline)
 		}
-		d = makeDeadline(background, jitterTime(expiration, time.Duration(r)))
-		t.deadlines[k] = d
+		t.deadlines[k] = newDeadline
 	}
 	t.mutex.Unlock()
+	if ok {
+		newDeadline.cancel()
+	} else {
+		d = newDeadline
+	}
 
 	if cleanupTime := t.loadCleanupTime(); cleanupTime.IsZero() || cleanupTime.Before(now) {
 		if t.tryLockCleanup() {
@@ -150,23 +149,35 @@ func (t *Timeline) unlockCleanup() {
 }
 
 func (t *Timeline) cleanup(now time.Time) {
-	r := t.resolution()
-	t.mutex.RLock()
-
-	for k, d := range t.deadlines {
-		t.mutex.RUnlock()
-
-		if deadline, _ := d.context.Deadline(); now.After(deadline.Add(r)) {
-			d.cancel()
-			t.mutex.Lock()
-			delete(t.deadlines, k)
-			t.mutex.Unlock()
-		}
-
-		t.mutex.RLock()
+	type timestampAndDeadline struct {
+		timestamp int64
+		deadline  deadline
 	}
 
+	expired := []timestampAndDeadline{}
+	r := t.resolution()
+
+	t.mutex.RLock()
+	for k, d := range t.deadlines {
+		if deadline, _ := d.context.Deadline(); now.After(deadline.Add(r)) {
+			expired = append(expired, timestampAndDeadline{
+				timestamp: k,
+				deadline:  d,
+			})
+		}
+	}
 	t.mutex.RUnlock()
+
+	if len(expired) != 0 {
+		t.mutex.Lock()
+		for _, x := range expired {
+			delete(t.deadlines, x.timestamp)
+		}
+		t.mutex.Unlock()
+		for _, x := range expired {
+			x.deadline.cancel()
+		}
+	}
 }
 
 func (t *Timeline) resolution() time.Duration {
