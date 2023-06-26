@@ -1,5 +1,8 @@
 # timers [![CircleCI](https://circleci.com/gh/segmentio/timers.svg?style=shield)](https://circleci.com/gh/segmentio/timers) [![Go Report Card](https://goreportcard.com/badge/github.com/segmentio/timers)](https://goreportcard.com/report/github.com/segmentio/timers) [![GoDoc](https://godoc.org/github.com/segmentio/timers?status.svg)](https://godoc.org/github.com/segmentio/timers)
 
+> **Note**  
+> Segment has paused maintenance on this project, but may return it to an active status in the future. Issues and pull requests from external contributors are not being considered, although internal contributions may appear from time to time. The project remains available under its open source license for anyone to use.
+
 ## Motivations
 
 The Go standard library offers good timer management abstractions through the
